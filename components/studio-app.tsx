@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Orb } from "orb-ui";
 import {
-  ArrowRight, BarChart3, BookOpen, Bot, Check, CircleDollarSign, FileText,
+  ArrowRight, AudioLines, BarChart3, BookOpen, Bot, Check, CircleDollarSign, FileText,
   Gift, Hand, KeyRound, LayoutList, MessageCircleMore, Phone, Play, Plus,
-  Presentation, SquareUserRound, WalletCards
+  Presentation, Search, SquareUserRound, WalletCards, X
 } from "lucide-react";
 
 type Studio = "voice" | "avatar";
@@ -19,12 +20,33 @@ const voiceChoices = [
   ["Jake", "EN", "A male speaker with an energetic..."],
 ];
 
+const allVoiceChoices = [
+  ["Chloe", "EN", "A friendly and clear female voice with an engaging, informative tone."],
+  ["Eleanor", "EN", "A calm, articulate female voice with a clear, professional delivery."],
+  ["Nora", "EN", "A female speaker with a calm, clear, and narrative voice."],
+  ["Jake", "EN", "A male speaker with an energetic and slightly dramatic tone."],
+  ["Marcus", "EN", "A male speaker with an enthusiastic, confident delivery."],
+  ["Oliver", "EN", "A calm, articulate male voice with a thoughtful American accent."],
+  ["Yujin", "KO", "A bright, personable female voice with an approachable tone."],
+  ["Jiho", "KO", "A friendly and reassuring male voice with an authoritative tone."],
+];
+
 const avatarVoices = [
   ["Mia", "EN-US", "Conversational · Energetic"],
   ["Marcus", "EN-US", "Enthusiastic · Confident"],
   ["Ava", "EN-US", "Upbeat · Clear"],
   ["Diane", "EN-US", "Professional · Serious"],
 ];
+
+const allAvatarVoices = [
+  ...avatarVoices,
+  ["Chloe", "EN", "Friendly · Informative"],
+  ["Eleanor", "EN", "Calm · Articulate"],
+  ["Oliver", "EN", "Thoughtful · Clear"],
+  ["Yujin", "KO", "Bright · Personable"],
+];
+
+const allFaces = ["Maya", "Andre", "Camila", "Ethan", "Fiona", "Helen", "James", "Kai", "Nova", "Pia", "Rachel", "Theo", "Wei"];
 
 const avatarPresets: Record<string, string> = {
   "Welcome message": "Hi, I'm Maya — your Boson AI avatar. Write your script in any language, choose a face, and I’ll bring it to life for you.",
@@ -41,7 +63,7 @@ const ttsPresets: Record<string, string> = {
 };
 
 function Logo() {
-  return <Image className="logo" src="/assets/logo-presence.svg" alt="Boson Workspace" width={249} height={42} priority />;
+  return <Image className="logo" src="/assets/boson-ai-logo.png" alt="Boson AI" width={1536} height={512} priority />;
 }
 
 function SideIcon({ name }: { name: string }) {
@@ -96,6 +118,38 @@ function VoiceCard({ item, active, onClick }: { item: string[]; active: boolean;
   </div>;
 }
 
+function VoiceModal({ voices, selected, onClose, onConfirm }: { voices:string[][]; selected:string; onClose:()=>void; onConfirm:(name:string)=>void }) {
+  const [query,setQuery]=useState("");
+  const [draft,setDraft]=useState(selected);
+  const shown=voices.filter(v=>v.join(" ").toLowerCase().includes(query.toLowerCase()));
+  useEffect(()=>{const close=(e:KeyboardEvent)=>e.key==="Escape"&&onClose();window.addEventListener("keydown",close);return()=>window.removeEventListener("keydown",close)},[onClose]);
+  return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <section className="picker-modal voice-modal" role="dialog" aria-modal="true" aria-labelledby="voice-modal-title">
+      <div className="modal-head"><h2 id="voice-modal-title">Browse voices</h2><button aria-label="Close" onClick={onClose}><X/></button></div>
+      <label className="modal-search"><Search/><input autoFocus value={query} onInput={e=>setQuery(e.currentTarget.value)} placeholder="Search by name, language, or tone" aria-label="Search voices"/></label>
+      <div className="modal-voices">{shown.map(v=><VoiceCard key={v[0]} item={v} active={draft===v[0]} onClick={()=>setDraft(v[0])}/>)}</div>
+      {!shown.length&&<div className="no-results">No voices match your search.</div>}
+      <div className="modal-actions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={()=>onConfirm(draft)}>Use this voice</button></div>
+    </section>
+  </div>;
+}
+
+function FaceModal({ selected, onClose, onConfirm }: { selected:string; onClose:()=>void; onConfirm:(name:string)=>void }) {
+  const [query,setQuery]=useState("");
+  const [draft,setDraft]=useState(selected);
+  const shown=allFaces.filter(name=>name.toLowerCase().includes(query.toLowerCase()));
+  useEffect(()=>{const close=(e:KeyboardEvent)=>e.key==="Escape"&&onClose();window.addEventListener("keydown",close);return()=>window.removeEventListener("keydown",close)},[onClose]);
+  return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <section className="picker-modal face-modal" role="dialog" aria-modal="true" aria-labelledby="face-modal-title">
+      <div className="modal-head"><h2 id="face-modal-title">Browse faces</h2><button aria-label="Close" onClick={onClose}><X/></button></div>
+      <label className="modal-search"><Search/><input autoFocus value={query} onInput={e=>setQuery(e.currentTarget.value)} placeholder="Search by name" aria-label="Search faces"/></label>
+      <div className="face-modal-grid">{shown.map(name=><button key={name} className={draft===name?"selected":""} onClick={()=>setDraft(name)}><Image src={`/assets/${name}.png`} alt={name} fill sizes="260px"/><span>{name}</span>{draft===name&&<i><Check/></i>}</button>)}</div>
+      {!shown.length&&<div className="no-results">No faces match your search.</div>}
+      <div className="modal-actions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={()=>onConfirm(draft)}>Use this face</button></div>
+    </section>
+  </div>;
+}
+
 function PanelTabs({ avatar, history, setHistory }: { avatar: boolean; history: boolean; setHistory: (v:boolean)=>void }) {
   return <div className="panel-tabs"><button className={!history ? "active" : ""} onClick={()=>setHistory(false)}>{avatar ? "Avatar" : "Settings"}</button><button className={history ? "active" : ""} onClick={()=>setHistory(true)}>History</button></div>;
 }
@@ -105,15 +159,16 @@ function HistoryPanel() {
 }
 
 function VoicePanel({ mode }: { mode: VoiceMode }) {
-  const [selected, setSelected] = useState(0);
+  const [selected, setSelected] = useState("Chloe");
   const [history, setHistory] = useState(false);
+  const [browsing,setBrowsing]=useState(false);
   return <aside className="settings-panel"><PanelTabs avatar={false} history={history} setHistory={setHistory} />{history ? <HistoryPanel /> : <div className="panel-scroll">
     <h2>Voice</h2><p className="help">Pick a voice. Tap play to preview</p>
-    <div className="voice-list">{voiceChoices.map((v,i)=><VoiceCard key={v[0]} item={v} active={i===selected} onClick={()=>setSelected(i)} />)}</div>
-    <button className="browse">Browse all voices <ArrowRight /></button>
+    <div className="voice-list">{voiceChoices.map(v=><VoiceCard key={v[0]} item={v} active={v[0]===selected} onClick={()=>setSelected(v[0])} />)}</div>
+    <button className="browse" onClick={()=>setBrowsing(true)}>Browse all voices <ArrowRight /></button>
     {mode === "tts" && <><h2 className="panel-section">Mode</h2><p className="help">Audio plays instantly when you select streaming</p><div className="mode-switch"><button className="active">Streaming</button><button>Play when finished</button></div></>}
     <h2 className="panel-section">Model</h2><div className="model-field">{mode === "chat" ? "Higgs Realtime" : "Higgs TTS 3"}</div>
-  </div>}</aside>;
+  </div>}{browsing&&<VoiceModal voices={allVoiceChoices} selected={selected} onClose={()=>setBrowsing(false)} onConfirm={name=>{setSelected(name);setBrowsing(false)}}/>}</aside>;
 }
 
 function Segmented({ items, value, onChange, label }: { items: [string,string][]; value:string; onChange:(v:string)=>void; label:string }) {
@@ -121,7 +176,7 @@ function Segmented({ items, value, onChange, label }: { items: [string,string][]
 }
 
 function ScenarioIcon({ i }: { i:number }) {
-  if(i===0) return <span className="mini-boson">≋</span>;
+  if(i===0) return <span className="mini-boson"><Image src="/favicon/android-chrome-192x192.png" alt="" width={24} height={24} /></span>;
   const icons=[<Phone key="p"/>,<SquareUserRound key="u"/>,<LayoutList key="l"/>];
   return <span className={`scenario-icon c${i}`}>{icons[i-1]}</span>;
 }
@@ -136,7 +191,7 @@ function VoiceMain({ mode, setMode }: { mode: VoiceMode; setMode:(m:VoiceMode)=>
     <div className="voice-canvas">
       <Segmented label="Voice Studio mode" value={mode} onChange={(v)=>setMode(v as VoiceMode)} items={[["chat","Chat"],["tts","Text-to-speech"]]} />
       {mode === "chat" ? <>
-        <div className="chat-intro"><div className="orb" /><h2>Higgs Realtime Agents</h2><p>Pick a scenario and start chatting.</p></div>
+        <div className="chat-intro"><div className="boson-orb"><Orb state="listening" volume={0.28} theme="cloud" size={260} interactive={false} aria-label="Higgs realtime agent is ready" /></div><h2>Higgs Realtime Agents</h2><p>Pick a scenario and start chatting.</p></div>
         <div className="scenario-grid">{scenarios.map((s,i)=><button key={s[0]} className={scenario===i?"selected":""} onClick={()=>setScenario(i)}><ScenarioIcon i={i}/><span><b>{s[0]}</b><small>{s[1]}</small></span></button>)}</div>
         <button className="start-chat" disabled={scenario===null}><Phone />Start chatting</button>
       </> : <>
@@ -153,30 +208,32 @@ function PresetRow({ labels, onPick }: { labels:string[]; onPick:(p:string)=>voi
 }
 
 function ComposerFooter({ enabled }: { enabled:boolean }) {
-  return <div className="composer-footer"><span>Type <kbd>/</kbd> to add control tags</span><button disabled={!enabled}><Wave />Generate</button></div>;
+  return <div className="composer-footer"><span>Type <kbd>/</kbd> to add control tags</span><button disabled={!enabled}><AudioLines aria-hidden="true" />Generate</button></div>;
 }
 
-function AvatarPanel() {
-  const [face,setFace]=useState(0); const [voice,setVoice]=useState(0); const [history,setHistory]=useState(false);
-  const faces=[["Maya","/assets/Maya.png"],["Andre","/assets/Andre.png"],["Camila","/assets/Camila.png"]];
+function AvatarPanel({ face, setFace }: { face:string; setFace:(name:string)=>void }) {
+  const [voice,setVoice]=useState("Mia"); const [history,setHistory]=useState(false);
+  const [browsingFaces,setBrowsingFaces]=useState(false); const [browsingVoices,setBrowsingVoices]=useState(false);
+  const faces=["Maya","Andre","Camila"];
   return <aside className="settings-panel avatar-panel"><PanelTabs avatar history={history} setHistory={setHistory}/>{history?<HistoryPanel/>:<div className="panel-scroll">
-    <h2>Face</h2><p className="help">Pick the face your audience sees</p><div className="faces">{faces.map((f,i)=><button key={f[0]} className={face===i?"selected":""} onClick={()=>setFace(i)}><Image src={f[1]} alt={f[0]} fill sizes="110px"/><span>{f[0]}</span>{face===i&&<i><Check/></i>}</button>)}</div>
-    <button className="browse">Browse all faces <ArrowRight/></button>
-    <h2 className="panel-section">Voice</h2><p className="help">Pick the voice for your avatar. Tap play to preview</p><div className="voice-list">{avatarVoices.map((v,i)=><VoiceCard key={v[0]} item={v} active={i===voice} onClick={()=>setVoice(i)}/>)}</div>
-    <button className="browse">Browse all voices <ArrowRight/></button>
-  </div>}</aside>;
+    <h2>Face</h2><p className="help">Pick the face your audience sees</p><div className="faces">{faces.map(name=><button key={name} className={face===name?"selected":""} onClick={()=>setFace(name)}><Image src={`/assets/${name}.png`} alt={name} fill sizes="110px"/><span>{name}</span>{face===name&&<i><Check/></i>}</button>)}</div>
+    <button className="browse" onClick={()=>setBrowsingFaces(true)}>Browse all faces <ArrowRight/></button>
+    <h2 className="panel-section">Voice</h2><p className="help">Pick the voice for your avatar. Tap play to preview</p><div className="voice-list">{avatarVoices.map(v=><VoiceCard key={v[0]} item={v} active={v[0]===voice} onClick={()=>setVoice(v[0])}/>)}</div>
+    <button className="browse" onClick={()=>setBrowsingVoices(true)}>Browse all voices <ArrowRight/></button>
+  </div>}{browsingFaces&&<FaceModal selected={face} onClose={()=>setBrowsingFaces(false)} onConfirm={name=>{setFace(name);setBrowsingFaces(false)}}/>}{browsingVoices&&<VoiceModal voices={allAvatarVoices} selected={voice} onClose={()=>setBrowsingVoices(false)} onConfirm={name=>{setVoice(name);setBrowsingVoices(false)}}/>}</aside>;
 }
 
-function AvatarMain() {
+function AvatarMain({ face }: { face:string }) {
   const [mode,setMode]=useState("speech"); const [text,setText]=useState(avatarPresets["Welcome message"]);
   return <main className="avatar-main"><div className="dot-grid"/><div className="avatar-content">
     <Segmented label="Avatar mode" value={mode} onChange={setMode} items={[["speech","Speech"],["chat","Chat"]]}/>
-    <div className="avatar-image"><Image src="/assets/Maya.png" alt="Maya avatar" fill sizes="464px" priority/></div>
+    <div className="avatar-image"><Image src={`/assets/${face}.png`} alt={`${face} avatar`} fill sizes="464px" priority/></div>
     <div className="avatar-composer"><PresetRow labels={Object.keys(avatarPresets)} onPick={(p)=>setText(avatarPresets[p])}/><div className="composer"><textarea value={text} onChange={e=>setText(e.target.value)}/><ComposerFooter enabled={!!text}/></div></div>
   </div></main>;
 }
 
 export default function StudioApp({ initialStudio }: { initialStudio:Studio }) {
   const [voiceMode,setVoiceMode]=useState<VoiceMode>("chat");
-  return <div className="app-shell"><Sidebar studio={initialStudio}/><div className="workspace">{initialStudio==="voice"?<><VoiceMain mode={voiceMode} setMode={setVoiceMode}/><VoicePanel mode={voiceMode}/></>:<><AvatarMain/><AvatarPanel/></>}</div></div>;
+  const [face,setFace]=useState("Maya");
+  return <div className="app-shell"><Sidebar studio={initialStudio}/><div className="workspace">{initialStudio==="voice"?<><VoiceMain mode={voiceMode} setMode={setVoiceMode}/><VoicePanel mode={voiceMode}/></>:<><AvatarMain face={face}/><AvatarPanel face={face} setFace={setFace}/></>}</div></div>;
 }
