@@ -339,6 +339,16 @@ export function AgentDetailPage({ agentId, startInCall = false }: { agentId: str
   const createAgent = useCreateAgent();
   const [tab, setTab] = useState<Tab>("configuration");
   const [live, setLive] = useState(startInCall);
+
+  /**
+   * `?call=1` asks for the stage, and has to keep asking.
+   *
+   * Seeding the state from the prop only works on a first mount. Arriving here from the
+   * same route without the parameter — the Live button on the list, say — leaves the
+   * component mounted, so `useState` never re-reads it and the stage stayed shut with the
+   * URL plainly saying otherwise.
+   */
+  useEffect(() => { if (startInCall) setLive(true); }, [startInCall]);
   const [inSession, setInSession] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [managingTools, setManagingTools] = useState(false);
