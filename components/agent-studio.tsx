@@ -103,6 +103,29 @@ function useCreateAgent() {
   }, [studio, router]);
 }
 
+/**
+ * The builder, wherever "Create agent" is pressed.
+ *
+ * Both the landing and the library open the same dialog: creating an agent should be one
+ * flow with one entry, not a different thing depending on which page you happened to be on.
+ * "Skip" inside it is the blank agent, which is why there is no separate button for that.
+ */
+function BuilderHost({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const createAgent = useCreateAgent();
+  if (!open) return null;
+  return <AgentBuilderModal
+    onClose={onClose}
+    onBlank={() => { onClose(); createAgent(); }}
+    onCreate={draft => {
+      onClose();
+      createAgent(undefined, draft.name, {
+        summary: draft.summary, config: draftToConfig(draft),
+        color: draft.color, icon: draft.icon,
+      });
+    }}
+  />;
+}
+
 /* ------------------------------------------------------------- the landing --- */
 
 /**
@@ -183,23 +206,8 @@ export function AgentLandingPage({ startCreating = false }: { startCreating?: bo
         </div>
       </>}
 
-      {building && <AgentBuilderModal
-        onClose={() => setBuilding(false)}
-        onBlank={() => { setBuilding(false); createAgent(); }}
-        onCreate={draft => {
-          setBuilding(false);
-          createAgent(undefined, draft.name, {
-            summary: draft.summary, config: draftToConfig(draft),
-            color: draft.color, icon: draft.icon,
-          });
-        }}
-      />}
+      <BuilderHost open={building} onClose={() => setBuilding(false)} />
 
-      {live && agent && <TryItLive
-        agent={agent} tools={studio.tools} voices={voices} autoStart
-        onClose={() => setLive(false)} onSessionChange={onSessionChange}
-        onEnded={() => router.push(`/workspace/agent-studio/${agent.id}`)}
-      />}
     </main>
   </Shell>;
 }
@@ -212,6 +220,7 @@ export function AgentListPage() {
   const { voices } = useVoiceLibrary(studio.voices);
   const createAgent = useCreateAgent();
   const [query, setQuery] = useState("");
+  const [building, setBuilding] = useState(false);
 
   const shown = studio.agents.filter(agent =>
     `${agent.name} ${agent.summary}`.toLowerCase().includes(query.trim().toLowerCase()));
@@ -233,7 +242,7 @@ export function AgentListPage() {
           <Search aria-hidden="true" />
           <input value={query} onInput={event => setQuery(event.currentTarget.value)} placeholder="Search agents" aria-label="Search agents" />
         </label>
-        <button className="primary create-agent" onClick={() => createAgent()}><Plus aria-hidden="true" />Create agent</button>
+        <button className="primary create-agent" onClick={() => setBuilding(true)}><Plus aria-hidden="true" />Create agent</button>
       </div>
 
       <div className="library-table" role="table" aria-label="Agents">
@@ -246,7 +255,7 @@ export function AgentListPage() {
           >
             <span className="library-agent" role="cell">
               <AgentMark agent={agent} size={34} />
-              <span><b>{agent.name}</b><small>{agent.summary}</small></span>
+              <span className="library-agent-copy"><b>{agent.name}</b><small>{agent.summary}</small></span>
             </span>
             <span className="library-cell" role="cell">{voiceLabel(voices, agent.config.voice)}</span>
             <span className="library-cell" role="cell">{agent.config.toolIds.length || "—"}</span>
@@ -272,11 +281,9 @@ export function AgentListPage() {
             {seed.name}
           </button>;
         })}
-        <button onClick={() => createAgent()}>
-          <span className="agent-mark blank" style={{ width: 30, height: 30 }}><Plus aria-hidden="true" /></span>
-          Start from scratch
-        </button>
       </div>
+
+      <BuilderHost open={building} onClose={() => setBuilding(false)} />
     </main>
   </Shell>;
 }

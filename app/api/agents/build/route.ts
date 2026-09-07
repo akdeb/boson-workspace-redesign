@@ -1,5 +1,6 @@
 import { draftAgent, MissingKeyError, type BuilderMessage } from "@/lib/agent-builder";
 import { readStudio } from "@/lib/db/repository";
+import type { ToolDefinition } from "@/lib/tools";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,9 +17,17 @@ export async function POST(request: Request) {
   const messages = (body.messages ?? []).filter(message => message.content?.trim());
   if (!messages.length) return Response.json({ error: "Say what the agent is for." }, { status: 400 });
 
+  // The tools the model may attach are whatever this workspace actually has — but a
+  // database that will not open is no reason to refuse to draft an agent.
+  let tools: ToolDefinition[] = [];
   try {
-    // The tools the model may attach are whatever this workspace actually has.
-    return Response.json(await draftAgent(messages, readStudio().tools));
+    tools = readStudio().tools;
+  } catch (error) {
+    console.warn("Agent builder could not read the tool library", error);
+  }
+
+  try {
+    return Response.json(await draftAgent(messages, tools));
   } catch (error) {
     if (error instanceof MissingKeyError) {
       return Response.json({ error: error.message }, { status: 501 });

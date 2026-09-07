@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
 import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { SQLITE_SCHEMA } from "@/lib/db/schema";
 
 /**
  * ── The one file that knows what database this is ────────────────────────────────────
@@ -38,7 +39,33 @@ export function toPositional(sql: string) {
   return sql.replace(/\?/g, () => `$${++index}`);
 }
 
-const DB_PATH = process.env.STUDIO_DB_PATH ?? path.join(process.cwd(), ".data", "studio.db");
+/**
+ * Where the database file lives.
+ *
+ * `.data` beside the code is right for a local dev server and impossible on a serverless
+ * host: on AWS Lambda (and so Vercel) the bundle is unpacked read-only at `/var/task`, and
+ * the only writable directory is `/tmp`. Falling back there keeps the app working, but
+ * `/tmp` is per-instance and wiped on a cold start — so on a real deployment this is a
+ * scratch pad, not storage. Point `STUDIO_DB_PATH` somewhere durable, or move to the
+ * Postgres schema in `schema.postgres.sql`.
+ */
+function resolveDbPath() {
+  const configured = process.env.STUDIO_DB_PATH?.trim();
+  if (configured) return configured;
+
+  const local = path.join(process.cwd(), ".data", "studio.db");
+  try {
+    mkdirSync(path.dirname(local), { recursive: true });
+    return local;
+  } catch {
+    const fallback = path.join(tmpdir(), "boson-studio", "studio.db");
+    console.warn(
+      `Studio database: ${path.dirname(local)} is not writable, using ${fallback}. `
+      + "This is ephemeral — set STUDIO_DB_PATH or move to Postgres for anything durable.",
+    );
+    return fallback;
+  }
+}
 
 let db: Db | null = null;
 
@@ -54,11 +81,12 @@ function bind(params: unknown[]) {
 export function getDb(): Db {
   if (db) return db;
 
-  mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  const sqlite = new DatabaseSync(DB_PATH);
+  const dbPath = resolveDbPath();
+  mkdirSync(path.dirname(dbPath), { recursive: true });
+  const sqlite = new DatabaseSync(dbPath);
   sqlite.exec("PRAGMA journal_mode = WAL");
   sqlite.exec("PRAGMA foreign_keys = ON");
-  sqlite.exec(readFileSync(path.join(process.cwd(), "lib", "db", "schema.sql"), "utf8"));
+  sqlite.exec(SQLITE_SCHEMA);
 
   db = {
     all: <T,>(sql: string, params: unknown[] = []) => sqlite.prepare(sql).all(...bind(params)) as T[],
