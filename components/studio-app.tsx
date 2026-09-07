@@ -18,6 +18,7 @@ import {
 } from "@/lib/store/use-studio";
 import type { AgentRecord, FaceRecord, TranscriptEntry, VoiceRecord } from "@/lib/store/types";
 import { Composer, ComposerFooter, PresetRow, enhanceScript } from "@/components/composer";
+import { canStreamSpeech, streamSpeech } from "@/lib/tts-stream";
 import { Shell, type Studio } from "@/components/shell";
 import { Toggle } from "@/components/agent-panel";
 import { VoiceSection } from "@/components/voice-picker";
@@ -91,7 +92,11 @@ function HistoryPanel({ studio, faces }: { studio: Studio; faces: FaceRecord[] }
 /* ------------------------------------------------------------ voice studio --- */
 
 /** Voice Studio is text-to-speech; the realtime conversation lives in Agent Studio. */
-function VoiceMain({ voice, voices }: { voice: string; voices: VoiceRecord[] }) {
+function VoiceMain({ voice, voices, streaming }: {
+  voice: string; voices: VoiceRecord[];
+  /** Play as it is generated, rather than waiting for the finished clip. */
+  streaming: boolean;
+}) {
   const { addSession, newId } = useStudio();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -99,33 +104,57 @@ function VoiceMain({ voice, voices }: { voice: string; voices: VoiceRecord[] }) 
   const [clipUrl, setClipUrl] = useState<string | null>(null);
   const clipRef = useRef<string | null>(null);
   clipRef.current = clipUrl;
-  useEffect(() => () => { if (clipRef.current) URL.revokeObjectURL(clipRef.current); }, []);
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    if (clipRef.current) URL.revokeObjectURL(clipRef.current);
+  }, []);
 
   const label = voiceLabel(voices, voice);
 
+  const file = () => addSession({
+    id: newId("tts"), studio: "voice", title: text.slice(0, 60),
+    detail: `Higgs TTS 3 · ${label}`, createdAt: new Date().toISOString(),
+  });
+
   const generate = async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setBusy(true);
     setError(null);
+    if (clipUrl) URL.revokeObjectURL(clipUrl);
+    setClipUrl(null);
     try {
+      if (streaming && canStreamSpeech()) {
+        // The URL is live the moment the stream opens, so the player has something to play
+        // while the rest is still being generated. `busy` clears here rather than at the
+        // end: the wait is over once sound starts, not once the clip is complete.
+        const clip = await streamSpeech({ text, voice }, controller.signal);
+        setClipUrl(clip.url);
+        setBusy(false);
+        file();
+        await clip.done;
+        return;
+      }
+
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, voice, format: "mp3" }),
+        signal: controller.signal,
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(body?.error ?? `Generation failed (${response.status}).`);
       }
-      if (clipUrl) URL.revokeObjectURL(clipUrl);
       setClipUrl(URL.createObjectURL(await response.blob()));
-      addSession({
-        id: newId("tts"), studio: "voice", title: text.slice(0, 60),
-        detail: `Higgs TTS 3 · ${label}`, createdAt: new Date().toISOString(),
-      });
+      file();
     } catch (caught) {
+      if (controller.signal.aborted) return;
       setError(caught instanceof Error ? caught.message : "Speech synthesis failed.");
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
     }
   };
 
@@ -140,7 +169,10 @@ function VoiceMain({ voice, voices }: { voice: string; voices: VoiceRecord[] }) 
       </div>
       <div className="composer-wrap">
         <PresetRow labels={Object.keys(ttsPresets)} onPick={preset => setText(ttsPresets[preset])} />
-        <Composer value={text} onChange={setText} placeholder="Type anything. Click generate to hear it instantly. Any language works.">
+        {/* The halo is the wait made visible: it glows while the API is still thinking, and
+            stops the moment there is something to hear. Avatar Studio puts the same signal
+            on the face instead, which is where the eye already is. */}
+        <Composer value={text} onChange={setText} busy={busy} placeholder="Type anything. Click generate to hear it instantly. Any language works.">
           <ComposerFooter
             enabled={!!text.trim()} busy={busy} onGenerate={() => void generate()}
             onEnhance={async () => setText(await enhanceScript(text))}
@@ -550,6 +582,7 @@ export default function StudioApp({ initialStudio }: { initialStudio: "voice" | 
   const faces = useMemo(() => faceLibrary(studio.faces), [studio.faces]);
 
   const [ttsVoice, setTtsVoice] = useState("chloe");
+  const [streaming, setStreaming] = useState(true);
   const [faceId, setFaceId] = useState("Maya");
   const [avatarSize, setAvatarSize] = useState<AvatarSize>("480x640");
   const [avatarAgentId, setAvatarAgentId] = useState("");
@@ -591,11 +624,18 @@ export default function StudioApp({ initialStudio }: { initialStudio: "voice" | 
 
   if (initialStudio === "voice") {
     return <Shell studio="voice">
-      <VoiceMain voice={ttsVoice} voices={voices} />
+      <VoiceMain voice={ttsVoice} voices={voices} streaming={streaming} />
       <aside className="settings-panel">
         <PanelTabs main="Settings" history={panelHistory} setHistory={setPanelHistory} />
         {panelHistory ? <HistoryPanel studio="voice" faces={faces} /> : <div className="panel-scroll">
           <VoiceSection voices={voices} selected={ttsVoice} onSelect={setTtsVoice} onClone={() => setCloning(true)} onDelete={deleteVoice} />
+          <div className="panel-section-head">
+            <h2 className="panel-section">Streaming</h2>
+            <Toggle label="Streaming" on={streaming} onChange={setStreaming} />
+          </div>
+          <p className="help">{streaming
+            ? "Audio starts the moment the first bytes arrive."
+            : "Waits for the whole clip, then plays it."}</p>
           <h2 className="panel-section">Model</h2>
           <div className="model-field">Higgs TTS 3</div>
           <p className="help config-summary">

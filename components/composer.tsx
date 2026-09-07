@@ -50,8 +50,10 @@ export function PresetRow({ labels, onPick }: { labels: string[]; onPick: (prese
  * The shared script box for Text-to-speech and Avatar Speech. Typing `/` opens the control
  * tag menu; picking one replaces the `/query` in place.
  */
-export function Composer({ value, onChange, placeholder, children }: {
+export function Composer({ value, onChange, placeholder, children, busy = false }: {
   value: string; onChange: (next: string) => void; placeholder?: string; children: React.ReactNode;
+  /** Glows while something is being generated from what is in the box. */
+  busy?: boolean;
 }) {
   const [menu, setMenu] = useState<{ query: string; start: number } | null>(null);
   const [active, setActive] = useState(0);
@@ -89,7 +91,7 @@ export function Composer({ value, onChange, placeholder, children }: {
     else if (event.key === "Escape") { event.preventDefault(); setMenu(null); }
   };
 
-  return <div className="composer">
+  return <div className={`composer ${busy ? "working" : ""}`}>
     {/* A textarea cannot draw a pill, so the script is painted a second time underneath by
         `TaggedText` and the real field is left with transparent text and a visible caret.
         The two only stay in register if the tags occupy exactly the width of the characters

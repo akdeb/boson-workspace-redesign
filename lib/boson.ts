@@ -167,6 +167,26 @@ export function speechBody(request: SpeechRequest) {
   };
 }
 
+/**
+ * The same request, handed back unread so the bytes can be piped onward.
+ *
+ * `createSpeech` buffers the whole clip before anyone hears a word of it, which is fine
+ * when you are muxing it into a video and wrong when someone is waiting to listen.
+ */
+export async function streamSpeech(request: SpeechRequest) {
+  const response = await bosonFetch("/v1/audio/speech", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(speechBody(request)),
+  });
+  if (!response.ok || !response.body) {
+    const detail = await readError(response);
+    console.error("Boson TTS failed", response.status, detail);
+    throw new BosonError(detail || `Higgs TTS failed (${response.status}).`, response.status);
+  }
+  return response;
+}
+
 export async function createSpeech(request: SpeechRequest) {
   const response = await bosonFetch("/v1/audio/speech", {
     method: "POST",

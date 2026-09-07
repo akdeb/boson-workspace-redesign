@@ -768,3 +768,9 @@ button{color:inherit}
 .lang-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lang-tier{flex:none;font-style:normal;font-size:10.5px;letter-spacing:.03em;color:#98a0ab;background:#f1f3f6;border-radius:5px;padding:3px 6px}
 .lang-empty{margin:0;padding:18px 10px;text-align:center;font-size:13px;color:#98a0ab}
+
+/* ── the composer glows while it waits ──────────────────────────────────────────── */
+/* Voice Studio only: Avatar Studio puts the same signal on the face, where the eye is. */
+.composer.working{border-color:#bcd2fb;box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 22%,transparent),0 0 34px 6px color-mix(in srgb,var(--blue) 18%,transparent);animation:composer-halo 1.8s ease-in-out infinite}
+@keyframes composer-halo{0%,100%{box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 18%,transparent),0 0 26px 4px color-mix(in srgb,var(--blue) 13%,transparent)}50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 32%,transparent),0 0 44px 10px color-mix(in srgb,var(--blue) 24%,transparent)}}
+@media(prefers-reduced-motion:reduce){.composer.working{animation:none}}

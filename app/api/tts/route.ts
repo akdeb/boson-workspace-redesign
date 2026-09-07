@@ -1,4 +1,4 @@
-import { createSpeech, errorMessage, errorStatus } from "@/lib/boson";
+import { createSpeech, errorMessage, errorStatus, streamSpeech } from "@/lib/boson";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,13 +11,15 @@ type SpeechBody = {
   /** One-off cloning: preview a reference clip without registering a voice first. */
   refAudio?: string;
   refText?: string;
+  /** Pipe the audio through as it arrives instead of buffering the whole clip first. */
+  stream?: boolean;
 };
 
 const CONTENT_TYPES: Record<string, string> = {
   mp3: "audio/mpeg", wav: "audio/wav", opus: "audio/ogg", flac: "audio/flac", aac: "audio/aac",
 };
 
-/** Synthesize speech with Higgs TTS 3 and stream the audio straight back to the player. */
+/** Synthesize speech with Higgs TTS 3, buffered or streamed. */
 export async function POST(request: Request) {
   let body: SpeechBody;
   try {
@@ -31,7 +33,22 @@ export async function POST(request: Request) {
   if (text.length > 5000) return Response.json({ error: "Text is limited to 5000 characters." }, { status: 400 });
 
   const format = body.format ?? "mp3";
+  const contentType = CONTENT_TYPES[format] ?? "audio/mpeg";
+
   try {
+    if (body.stream) {
+      const upstream = await streamSpeech({
+        input: text,
+        voice: body.voice,
+        responseFormat: format,
+        refAudio: body.refAudio,
+        refText: body.refText,
+      });
+      return new Response(upstream.body, {
+        headers: { "Content-Type": contentType, "Cache-Control": "no-store" },
+      });
+    }
+
     const audio = await createSpeech({
       input: text,
       voice: body.voice,
@@ -40,7 +57,7 @@ export async function POST(request: Request) {
       refText: body.refText,
     });
     return new Response(new Uint8Array(audio), {
-      headers: { "Content-Type": CONTENT_TYPES[format] ?? "audio/mpeg", "Cache-Control": "no-store" },
+      headers: { "Content-Type": contentType, "Cache-Control": "no-store" },
     });
   } catch (error) {
     return Response.json({ error: errorMessage(error, "Speech synthesis failed.") }, { status: errorStatus(error) });
