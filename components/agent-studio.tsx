@@ -206,8 +206,13 @@ export function AgentLandingPage({ startCreating = false }: { startCreating?: bo
         </div>
       </>}
 
-      <BuilderHost open={building} onClose={() => setBuilding(false)} />
+      {live && agent && <TryItLive
+        agent={agent} tools={studio.tools} voices={voices} autoStart
+        onClose={() => setLive(false)} onSessionChange={onSessionChange}
+        onEnded={() => router.push(`/workspace/agent-studio/${agent.id}`)}
+      />}
 
+      <BuilderHost open={building} onClose={() => setBuilding(false)} />
     </main>
   </Shell>;
 }
