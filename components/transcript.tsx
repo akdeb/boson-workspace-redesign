@@ -88,3 +88,33 @@ export function ToolActivity({ entries, limit }: { entries: TranscriptEntry[]; l
     {shown.map(call => <ToolCallLine key={call.callId} call={call} />)}
   </div>;
 }
+
+/**
+ * The same conversation as a chat thread.
+ *
+ * Used where the transcript is the whole surface rather than a record you scan — beside a
+ * live avatar, the turns are the conversation you are having, so they read as messages.
+ * Tool calls stay full-width cards between the bubbles: they are events, not something
+ * anybody said.
+ */
+export function BubbleTranscript({ entries, tint, empty }: {
+  entries: TranscriptEntry[];
+  /** The agent's colour, worn by your own bubbles. */
+  tint: string;
+  empty: string;
+}) {
+  if (!entries.length) return <div className="transcript-empty">{empty}</div>;
+  return <div className="chat-thread">
+    {entries.map((entry, index) => entry.kind === "tool"
+      ? <div className="transcript-tool" key={`${entry.callId}-${index}`}><ToolCallLine call={entry} /></div>
+      : <div className={`chat-row ${entry.role}`} key={`${entry.role}-${index}`}>
+          <div
+            className={`chat-bubble ${entry.role}`}
+            style={entry.role === "user" ? { background: tint } : undefined}
+          >{entry.text}</div>
+          {entry.latencyMs !== undefined && <small title="Time from the end of your turn to the first word spoken">
+            {formatLatency(entry.latencyMs)}
+          </small>}
+        </div>)}
+  </div>;
+}

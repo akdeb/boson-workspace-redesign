@@ -22,7 +22,7 @@ import { Shell, type Studio } from "@/components/shell";
 import { Toggle } from "@/components/agent-panel";
 import { VoiceSection } from "@/components/voice-picker";
 import { FaceSection, UploadFaceModal } from "@/components/face-picker";
-import { Transcript } from "@/components/transcript";
+import { BubbleTranscript, Transcript } from "@/components/transcript";
 import { CloneVoiceModal } from "@/components/voice-clone";
 
 const avatarPresets: Record<string, string> = {
@@ -529,10 +529,15 @@ function LiveTranscriptPanel({ agent, entries }: { agent: AgentRecord | null; en
     if (scroll) scroll.scrollTop = scroll.scrollHeight;
   }, [entries]);
 
-  return <aside className="settings-panel avatar-panel">
-    <div className="panel-tabs single"><button className="active">Conversation</button></div>
+  const tint = agent ? agentLook(agent).swatch.ink : "var(--blue)";
+
+  return <aside className="settings-panel live-chat">
     <div className="panel-scroll live-panel" ref={scrollRef}>
-      <Transcript entries={entries} empty={`Say something and ${agent?.name ?? "the agent"} will answer.`} />
+      <BubbleTranscript
+        entries={entries}
+        tint={tint}
+        empty={`Say something and ${agent?.name ?? "the agent"} will answer.`}
+      />
     </div>
   </aside>;
 }

@@ -726,13 +726,28 @@ button{color:inherit}
 .live-stage.with-settings .live-stage-foot{right:min(420px,86vw)}
 
 /* ── the conversation, in the settings column ───────────────────────────────────── */
-.panel-tabs.single{grid-template-columns:1fr}
-.panel-tabs.single button{cursor:default}
-.live-panel{padding-top:20px}
-.live-panel .transcript-line{grid-template-columns:52px minmax(0,1fr);gap:12px;margin-bottom:18px;font-size:14px;line-height:1.5}
-.live-panel .transcript-line b{font-size:12.5px}
-.live-panel .transcript-tool{padding-left:64px;margin-bottom:18px}
-.live-panel .transcript-empty{height:auto;padding:40px 0;text-align:center;font-size:13.5px}
+/* The same dotted ground as the canvas, so the conversation reads as part of the stage
+   rather than a separate document pinned beside it. */
+/* No divider: the panel shares the canvas's dotted ground during a call, so a rule down
+   the middle would cut one surface in two. */
+.settings-panel.live-chat{border-left:0;background:#fff;background-image:radial-gradient(#dfe4ea 1px,transparent 1px);background-size:24px 24px;background-position:12px 12px}
+/* Anchored to the bottom so a short conversation sits above the dock and grows
+   upward, the way a chat does, instead of dangling from the top of the column. */
+.live-chat .live-panel{height:100vh;padding:26px 20px 30px;display:flex;flex-direction:column;justify-content:flex-end}
+.live-panel .transcript-empty{height:auto;padding:60px 0;text-align:center;font-size:13.5px}
+
+/* ── the conversation as a chat thread ──────────────────────────────────────────── */
+.chat-thread{display:flex;flex-direction:column;gap:12px;margin-top:auto}
+.chat-row{display:flex;flex-direction:column;gap:4px;max-width:88%}
+.chat-row.agent{align-self:flex-start;align-items:flex-start}
+.chat-row.user{align-self:flex-end;align-items:flex-end}
+.chat-bubble{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word}
+.chat-bubble.agent{background:#fff;border:1px solid #e2e6eb;color:#2c333c;border-bottom-left-radius:6px}
+/* The tint is the agent's own colour, set inline — every one of them is dark enough to
+   carry white text. */
+.chat-bubble.user{color:#fff;border-bottom-right-radius:6px}
+.chat-row small{font-size:11px;color:#a0a7b1;font-variant-numeric:tabular-nums;padding:0 4px}
+.chat-thread .transcript-tool{align-self:stretch;margin:2px 0}
 
 /* ── language picker ────────────────────────────────────────────────────────────── */
 .lang-picker{position:relative}
